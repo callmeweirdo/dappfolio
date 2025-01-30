@@ -8,6 +8,9 @@ import { SplashScreen, Stack } from 'expo-router'
 import { Provider } from './Provider'
 import { useTheme } from 'tamagui'
 
+import "@ethersproject/shims";
+import "react-native-get-random-values";
+
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
