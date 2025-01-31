@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import { portfolioManagerABI } from "../contract/abi.json";
 
 // Use Hardhat node (or update to Infura/Alchemy for testing/Mainet)
 
