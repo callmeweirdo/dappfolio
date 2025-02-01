@@ -24,6 +24,7 @@
     "@tamagui/toast": "^1.121.12",
     "@walletconnect/client": "^1.8.0",
     "@walletconnect/qrcode-modal": "^1.8.0",
+    "@walletconnect/web3-provider": "^1.8.0",
     "babel-preset-expo": "^11.0.6",
     "burnt": "^0.12.2",
     "ethers": "^6.13.5",
