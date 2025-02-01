@@ -1,11 +1,11 @@
 import { View, Text } from 'react-native'
 import React from 'react'
-import DevsProjectCard from 'components/DevProjects'
+import DevsProjects from '../../components/DevProjects';
 
 const projects = () => {
   return (
-    <DevsProjectCard />
+    <DevsProjects />
   )
 }
 
-export default projects
+export default projects;

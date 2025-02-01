@@ -1,197 +1,330 @@
-import { Button, Card, H2, Image, Paragraph, ScrollView, XStack, YStack } from 'tamagui';
-import { Link } from 'expo-router';
-import React from 'react';
+import React, { useState, useEffect } from "react";
+import { Button, Card, H2, Paragraph, ScrollView, XStack, YStack, Input, Sheet, Label } from "tamagui";
+import { Link } from "expo-router";
+import { useContracts } from "../hook/ethersSetup";
+import { Image, StyleSheet, ActivityIndicator } from "react-native";
 
-// Home Component
-const DevsProjectCard = () => {
+// Styles definition
+const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
+  addButton: {
+    marginBottom: 20,
+    marginHorizontal: 16,
+  },
+  input: {
+    marginBottom: 10,
+  },
+  errorText: {
+    color: 'red',
+    padding: 10,
+  },
+  imageContainer: {
+    width: '100%',
+    height: 200,
+    marginBottom: 10,
+  },
+  image: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
+});
+
+// NoProjectsCard Component
+const NoProjectsCard = () => (
+  <Card padding="$4" marginVertical="$2">
+    <Paragraph>No projects available</Paragraph>
+  </Card>
+);
+
+// DevsCards Component
+const DevsCards = ({ name, description, imageUrl, link, onEdit }) => (
+  <Card padding="$4" marginVertical="$2">
+    <YStack space="$2">
+      {imageUrl && (
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.image}
+          resizeMode="cover"
+        />
+      )}
+      <H2>{name}</H2>
+      <Paragraph>{description}</Paragraph>
+      <XStack space="$2">
+        <Link href={link} asChild>
+          <Button flex={1}>View Details</Button>
+        </Link>
+        <Button flex={1} onPress={onEdit}>Edit</Button>
+      </XStack>
+    </YStack>
+  </Card>
+);
+
+// Main Component
+const DevsProjects = () => {
+  const { projectContract } = useContracts();
+  const [projects, setProjects] = useState([]);
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [editProject, setEditProject] = useState(null);
+  const [position, setPosition] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [newProject, setNewProject] = useState({
+    date: "",
+    name: "",
+    description: "",
+    githubUrl: "",
+    image: "",
+  });
+
+  // Fetch projects
+  const fetchProjects = async () => {
+    if (!projectContract) {
+      setError("Contract not initialized");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const projectData = await projectContract.getAllProjects();
+      const formattedProjects = projectData.map(project => ({
+        id: project.id.toString(),
+        date: project.date,
+        name: project.name,
+        description: project.description,
+        githubUrl: project.githubUrl,
+        image: project.image
+      }));
+      setProjects(formattedProjects);
+      setError(null);
+    } catch (err) {
+      console.error("Error fetching projects:", err);
+      setError("Failed to fetch projects");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add new project
+  const addProject = async () => {
+    try {
+      setLoading(true);
+      const tx = await projectContract.insertProject(
+        newProject.date,
+        newProject.name,
+        newProject.description,
+        newProject.githubUrl,
+        newProject.image
+      );
+      await tx.wait();
+      await fetchProjects();
+      setError(null);
+      return true;
+    } catch (err) {
+      console.error("Error adding project:", err);
+      setError("Failed to add project");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update existing project
+  const updateProject = async () => {
+    try {
+      setLoading(true);
+      const tx = await projectContract.updateProject(
+        editProject.id,
+        newProject.date,
+        newProject.name,
+        newProject.description,
+        newProject.githubUrl,
+        newProject.image
+      );
+      await tx.wait();
+      await fetchProjects();
+      setError(null);
+      return true;
+    } catch (err) {
+      console.error("Error updating project:", err);
+      setError("Failed to update project");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle form submission
+  const handleSubmit = async () => {
+    if (!newProject.name || !newProject.description) {
+      setError("Name and description are required");
+      return;
+    }
+
+    const success = editProject ? await updateProject() : await addProject();
+    
+    if (success) {
+      setSheetVisible(false);
+      setNewProject({
+        date: "",
+        name: "",
+        description: "",
+        githubUrl: "",
+        image: "",
+      });
+    }
+  };
+
+  // Open sheet for editing or adding
+  const openSheet = (project = null) => {
+    setError(null);
+    setEditProject(project);
+    if (project) {
+      setNewProject({
+        date: project.date,
+        name: project.name,
+        description: project.description,
+        githubUrl: project.githubUrl,
+        image: project.image,
+      });
+    } else {
+      setNewProject({
+        date: "",
+        name: "",
+        description: "",
+        githubUrl: "",
+        image: "",
+      });
+    }
+    setSheetVisible(true);
+  };
+
+  useEffect(() => {
+    if (projectContract) {
+      fetchProjects();
+    }
+  }, [projectContract]);
+
+  if (loading && !sheetVisible) {
+    return (
+      <YStack style={styles.loadingContainer}>
+        <ActivityIndicator size="large" />
+      </YStack>
+    );
+  }
+
   return (
-    <YStack flex={1} backgroundColor="$background" padding="$4" borderRadius="$4">
-      {/* Static Title */}
-      <H2 textAlign="center" color="$color" paddingVertical="$4">
-        My Projects
-      </H2>
+    <YStack flex={1}>
+      {error && <Paragraph style={styles.errorText}>{error}</Paragraph>}
+      
+      <ScrollView style={styles.scrollView}>
+        {projects.length > 0 ? (
+          projects.map((project, index) => (
+            <DevsCards
+              key={index}
+              name={project.name}
+              description={project.description}
+              imageUrl={project.image}
+              link="/project"
+              onEdit={() => openSheet(project)}
+            />
+          ))
+        ) : (
+          <NoProjectsCard />
+        )}
+      </ScrollView>
 
-      {/* Scrollable Cards Section */}
-      <DevsProjectsCards />
+      <Button 
+        onPress={() => openSheet()}
+        style={styles.addButton}
+        disabled={loading}
+      >
+        Add New Project
+      </Button>
+
+      <Sheet
+        modal
+        open={sheetVisible}
+        onOpenChange={setSheetVisible}
+        snapPoints={[80, 40, 0]}
+        position={position}
+        onPositionChange={setPosition}
+        dismissOnSnapToBottom
+      >
+        <Sheet.Overlay />
+        <Sheet.Frame padding="$4" backgroundColor="$background">
+          <Sheet.Handle />
+          <ScrollView>
+            <YStack space="$4">
+              <H2>{editProject ? "Edit Project" : "Add New Project"}</H2>
+              
+              <YStack space="$2">
+                <Label htmlFor="date">Date</Label>
+                <Input
+                  id="date"
+                  value={newProject.date}
+                  onChangeText={(text) => setNewProject(prev => ({...prev, date: text}))}
+                  style={styles.input}
+                  disabled={loading}
+                />
+
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  value={newProject.name}
+                  onChangeText={(text) => setNewProject(prev => ({...prev, name: text}))}
+                  style={styles.input}
+                  disabled={loading}
+                />
+
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  value={newProject.description}
+                  onChangeText={(text) => setNewProject(prev => ({...prev, description: text}))}
+                  style={styles.input}
+                  disabled={loading}
+                />
+
+                <Label htmlFor="githubUrl">GitHub URL</Label>
+                <Input
+                  id="githubUrl"
+                  value={newProject.githubUrl}
+                  onChangeText={(text) => setNewProject(prev => ({...prev, githubUrl: text}))}
+                  style={styles.input}
+                  disabled={loading}
+                />
+
+                <Label htmlFor="image">Image URL</Label>
+                <Input
+                  id="image"
+                  value={newProject.image}
+                  onChangeText={(text) => setNewProject(prev => ({...prev, image: text}))}
+                  style={styles.input}
+                  disabled={loading}
+                />
+
+                <Button 
+                  onPress={handleSubmit}
+                  disabled={loading}
+                  opacity={loading ? 0.5 : 1}
+                >
+                  {loading ? "Processing..." : (editProject ? "Update Project" : "Add Project")}
+                </Button>
+              </YStack>
+            </YStack>
+          </ScrollView>
+        </Sheet.Frame>
+      </Sheet>
     </YStack>
   );
 };
 
-export default DevsProjectCard;
-
-// DevsProjectCards Component
-export function DevsProjectsCards() {
-  // Replace with your own project data
-  const devsProjectData = [
-    {
-      name: "Project 1",
-      description: "Description of Project 1",
-      imageUrl: "https://via.placeholder.com/150",
-      link: "/project1",
-    },
-    {
-      name: "Project 2",
-      description: "Description of Project 2",
-      imageUrl: "https://via.placeholder.com/150",
-      link: "/project2",
-    },
-  ];
-
-  // Check if there are projects to display
-  const hasProjects = devsProjectData.length > 0;
-
-  return (
-    <ResponsiveGrid>
-      {hasProjects ? (
-        // If there are projects, display them
-        devsProjectData.map((dev, index) => (
-          <DevsCards
-            key={index}
-            name={dev.name}
-            description={dev.description}
-            imageUrl={dev.imageUrl}
-            link={dev.link}
-            animation="bouncy"
-            size="$4"
-            scale={0.9}
-            hoverStyle={{ scale: 0.925 }}
-            pressStyle={{ scale: 0.875 }}
-          />
-        ))
-      ) : (
-        // If no projects, display the "No Projects Available" card
-        <NoProjectsCard />
-      )}
-    </ResponsiveGrid>
-  );
-}
-
-// NoProjectsCard Component (Displays when no projects are available)
-export function NoProjectsCard() {
-  return (
-    <Card style={styles.cardContainer} elevate size="$10" bordered>
-      <Card.Header padded style={styles.cardHeader}>
-        <H2>No Projects Available</H2>
-        <Paragraph theme="alt2">You don't have any projects listed yet.</Paragraph>
-      </Card.Header>
-
-      <Card.Background style={styles.cardImageContainer}>
-        <Image
-          resizeMode="contain"
-          source={{
-            width: 100,
-            height: 100,
-            uri: 'https://via.placeholder.com/150', // Placeholder image for no projects
-          }}
-          style={styles.cardImage}
-        />
-      </Card.Background>
-
-      <Card.Footer padded style={styles.cardFooter}>
-        <XStack alignItems="center" justifyContent="center" style={styles.footerContent}>
-          <Paragraph>No projects have been added to your profile yet.</Paragraph>
-        </XStack>
-      </Card.Footer>
-    </Card>
-  );
-}
-
-// DevsCards Component
-export function DevsCards({ name, description, imageUrl, link, ...props }) {
-  const devTitle = name ? name.toLowerCase() : 'untitled';
-
-  return (
-    <Link href={link}>
-      <Card
-        elevate
-        size="$10"
-        bordered
-        {...props}
-        style={styles.cardContainer}
-      >
-        <Card.Header padded>
-          <H2 textAlign="center">{name || 'Untitled'}</H2> {/* Display 'Untitled' if name is undefined */}
-          <Paragraph theme="alt2" textAlign="center">{description}</Paragraph>
-        </Card.Header>
-        <Card.Background>
-          <Image
-            resizeMode="contain"
-            alignSelf="center"
-            source={{
-              width: 250,
-              height: 250,
-              uri: imageUrl,
-            }}
-            style={styles.cardImage}
-          />
-        </Card.Background>
-        <Card.Footer padded>
-          <XStack justifyContent="center">
-            <Button borderRadius="$10">Purchase</Button>
-          </XStack>
-        </Card.Footer>
-      </Card>
-    </Link>
-  );
-}
-
-// ResponsiveGrid Component without MediaQuery
-export function ResponsiveGrid({ children }) {
-  // Ensure `children` is always an array
-  const childrenArray = Array.isArray(children) ? children : [children];
-
-  return (
-    <XStack
-      justifyContent="center"
-      flexWrap="wrap"
-      paddingHorizontal="$2"
-      paddingVertical="$4"
-      space="$4"
-    >
-      {childrenArray.map((child, index) => (
-        <YStack
-          key={index}
-          width="100%"
-          $gtLg={{ width: '23%' }}  // 4 cards per row for extra-large screens
-          $lg={{ width: '30%' }}    // 3 cards per row for large screens
-          $md={{ width: '30%' }}    // 3 cards per row for medium screens
-          $sm={{ width: '45%' }}    // 2 cards per row for small screens
-          $xs={{ width: '100%' }}   // 1 card per row for extra-small screens
-        >
-          {child}
-        </YStack>
-      ))}
-    </XStack>
-  );
-}
-
-// Styles for cards
-const styles = {
-  cardContainer: {
-    margin: 10, // Space between cards
-    borderRadius: 15, // Rounded corners for cards
-    overflow: 'hidden', // Ensures rounded corners for all content inside the card
-    width: '100%', // Default full-width for cards
-  },
-  cardImage: {
-    marginVertical: 8, // Vertical space around the image
-  },
-  cardImageContainer: {
-    alignItems: 'center', // Center image container
-    justifyContent: 'center', // Center image container
-    paddingVertical: 10,
-  },
-  cardHeader: {
-    alignItems: 'center', // Center header content
-    justifyContent: 'center', // Center header content
-    paddingBottom: 8,
-  },
-  cardFooter: {
-    alignItems: 'center', // Center footer content
-    justifyContent: 'center', // Center footer content
-  },
-  footerContent: {
-    width: '100%', // Ensure footer content takes full width
-    justifyContent: 'space-between', // Space between proficiency text and progress bar
-  },
-};
+export default DevsProjects;

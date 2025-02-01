@@ -1,6 +1,6 @@
 import { View, Text } from 'react-native';
 import React from 'react';
-import { DevSkills } from 'components/DevSkills';
+import { DevSkills } from '../../components/DevSkills';
 
 const skills = () => {
   return (

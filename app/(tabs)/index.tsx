@@ -1,7 +1,7 @@
 import { View } from 'react-native'
 import React from 'react'
 import { Button, H2, H5, Text, YStack } from "tamagui";
-import DevHome from 'components/DevHome';
+import DevHome from '../../components/DevHome';
 // import { LoginSheet } from '../components/loginsheet';
 // import { toggleStore } from '../stores/toggleStore';
 

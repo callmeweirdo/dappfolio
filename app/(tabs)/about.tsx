@@ -1,6 +1,6 @@
 import { View, Text } from 'react-native'
 import React from 'react'
-import AboutDev from 'components/AboutDev'
+import AboutDev from '../../components/AboutDev'
 
 const about = () => {
   return (
@@ -8,4 +8,4 @@ const about = () => {
   )
 }
 
-export default about
+export default about;
