@@ -3,7 +3,7 @@ import {ethers} from "ethers";
 import PortfolioManager from "../contract/PortfolioManager.json";
 import Education from "../contract/Education.json";
 import Experience from "../contract/Experience";
-import Projects from "../contract/Experience.json";
+import Projects from "../contract/Projects.json";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MetaMaskSDK } from "@metamask/sdk-react-native";
 
@@ -33,11 +33,35 @@ export const useContracts = () => {
                 const provider = metamask.getProvider();
                 const web3Provider = new ethers.providers.web3Provider(provider);
                 const signer = web3Provider.getSigner();
-                const address = await signer.getAddress.getAddress();
+                const address = await signer.getAddress();
                 setAccount(address);
 
                 const network = await web3Provider.getNetwork();
                 setChainId(network.chainId);
+                setConnected(true);
+
+                // contract instantiation
+                const portfolioManagerInstance = new ethers.Contract(PortfolioManagerAddress, PortfolioManager.abi, signer)
+                setPortfolioManagerContract(portfolioManagerInstance);
+
+                const contractAddresses = await portfolioManagerInstance.getContractAddresses();
+
+                const educationInstance = new ethers.Contract(
+                    contractAddresses.education,
+                    Education.abi,
+                    signer
+                )
+                setEducationContract(educationInstance);
+
+                const projectInstance = new ethers.Contract(contractAddresses.Projects, Projects.abi, signer);
+                setProjectContract(projectInstance);
+
+                const experienceInstance = new ethers.Contract(contractAddresses.experience, Experience.abi, signer);
+                setExperienceContract(experienceInstance);
+
+                // Fetch Data (Important: Do this after contract Intantiation)
+                const educationData = await educationInstance.allEducationDetails();
+
 
             } catch {
             }
