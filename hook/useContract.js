@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
-import {ethers} from "ethers";
+import { ethers } from "ethers";
 import PortfolioManager from "../contract/PortfolioManager.json";
 import Education from "../contract/Education.json";
-import Experience from "../contract/Experience";
+import Experience from "../contract/Experience.json"; // Corrected import
 import Projects from "../contract/Projects.json";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MetaMaskSDK } from "@metamask/sdk-react-native";
 
 const metamask = new MetaMaskSDK();
-const PortfolioManagerAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+const PortfolioManagerAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"; // Your contract address
 
 export const useContracts = () => {
     const [portfolioManagerContract, setPortfolioManagerContract] = useState(null);
@@ -16,7 +15,7 @@ export const useContracts = () => {
     const [projectContract, setProjectContract] = useState(null);
     const [experienceContract, setExperienceContract] = useState(null);
 
-    const [portfolioManagerDetails, setPortfolioManagerDetails] = useState([]);
+    const [portfolioManagerDetails, setPortfolioManagerDetails] = useState(null); // Corrected initial value
     const [educationDetails, setEducationDetails] = useState([]);
     const [projectDetails, setProjectDetails] = useState([]);
     const [experienceDetails, setExperienceDetails] = useState([]);
@@ -27,67 +26,91 @@ export const useContracts = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-
     useEffect(() => {
+        let isMounted = true; // Flag for mount status
+
         const initializeContracts = async () => {
             setLoading(true);
             try {
                 const provider = await metamask.getProvider();
-
                 if (!provider) {
-                    throw new Error("MetaMask provider not found") // handles the case where provider is not available
+                    throw new Error("MetaMask provider not found");
                 }
 
-                const web3Provider = new ethers.providers.web3Provider(provider);
+                const web3Provider = new ethers.providers.Web3Provider(provider);
                 const signer = web3Provider.getSigner();
                 const address = await signer.getAddress();
-                setAccount(address);
 
                 const network = await web3Provider.getNetwork();
-                setChainId(network.chainId);
+                const chainId = network.chainId;
+
+                // Chain ID Check (Sepolia)
+                if (chainId !== 11155111) {
+                    try {
+                        await provider.request({
+                            method: "wallet_switchEthereumChain",
+                            params: [{ chainId: "0x11155111" }],
+                        });
+                    } catch (switchError) {
+                        if (switchError.code !== 4902) {
+                            throw switchError; // Re-throw if not a user rejection
+                        }
+                        // Handle user rejection (if needed)
+                    }
+                }
+
+                if (!isMounted) return; // Check mount status
+                setAccount(address);
+                setChainId(chainId);
                 setConnected(true);
 
-                // contract instantiation
-                const portfolioManagerInstance = new ethers.Contract(PortfolioManagerAddress, PortfolioManager.abi, signer)
+                const portfolioManagerInstance = new ethers.Contract(
+                    PortfolioManagerAddress,
+                    PortfolioManager.abi,
+                    signer
+                );
                 setPortfolioManagerContract(portfolioManagerInstance);
 
-                const contractAddresses = await portfolioManagerInstance.getContractAddresses();
+                const [educationAddress, projectsAddress, experienceAddress] =
+                    await portfolioManagerInstance.getContractAddresses();
 
-                const educationInstance = new ethers.Contract(
-                    contractAddresses.education,
-                    Education.abi,
-                    signer
-                )
+                const educationInstance = new ethers.Contract(educationAddress, Education.abi, signer);
                 setEducationContract(educationInstance);
 
-                const projectInstance = new ethers.Contract(contractAddresses.Projects, Projects.abi, signer);
+                const projectInstance = new ethers.Contract(projectsAddress, Projects.abi, signer);
                 setProjectContract(projectInstance);
 
-                const experienceInstance = new ethers.Contract(contractAddresses.experience, Experience.abi, signer);
+                const experienceInstance = new ethers.Contract(experienceAddress, Experience.abi, signer);
                 setExperienceContract(experienceInstance);
 
-                // Fetch Data (Important: Do this after contract Intantiation)
+                // Fetch Data (after contract instantiation and mount check)
                 const educationData = await educationInstance.allEducationDetails();
-                setEducationDetails(educationData);
+                if (isMounted) setEducationDetails(educationData);
 
                 const projectData = await projectInstance.allProjectDetails();
-                setProjectDetails(projectData);
+                if (isMounted) setProjectDetails(projectData);
 
                 const experienceData = await experienceInstance.allExperienceDetails();
-                setExperienceDetails(experienceData);
+                if (isMounted) setExperienceDetails(experienceData);
 
                 const portfolioManagerData = await portfolioManagerInstance.getPortfolioDetails(address);
-                setPortfolioManagerDetails(portfolioManagerData);
+                if (isMounted) setPortfolioManagerDetails(portfolioManagerData);
+
             } catch (error) {
                 console.error("Error initializing contracts:", error);
                 setError(error.message);
                 setConnected(false);
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
+
         initializeContracts();
-    });
+
+        return () => {
+            isMounted = false; // Cleanup: Set mount flag to false
+        };
+    }, []);
 
     return {
         portfolioManagerContract,
@@ -97,10 +120,11 @@ export const useContracts = () => {
         portfolioManagerDetails,
         educationDetails,
         projectDetails,
+        experienceDetails,
         account,
         connected,
         chainId,
         loading,
-        error
+        error,
     };
 };
