@@ -68,10 +68,39 @@ export const useContracts = () => {
 
                 // Fetch Data (Important: Do this after contract Intantiation)
                 const educationData = await educationInstance.allEducationDetails();
+                setEducationDetails(educationData);
 
+                const projectData = await projectInstance.allProjectDetails();
+                setProjectDetails(projectData);
 
-            } catch {
+                const experienceData = await experienceInstance.allExperienceDetails();
+                setExperienceDetails(experienceData);
+
+                const portfolioManagerData = await portfolioManagerInstance.getPortfolioDetails(address);
+                setPortfolioManagerDetails(portfolioManagerData);
+            } catch (error) {
+                console.error("Error initializing contracts:", error);
+                setError(error.message);
+                setConnected(false);
+            } finally {
+                setLoading(false);
             }
-        }
+        };
+        initializeContracts();
     });
-}
+
+    return {
+        portfolioManagerContract,
+        educationContract,
+        projectContract,
+        experienceContract,
+        portfolioManagerDetails,
+        educationDetails,
+        projectDetails,
+        account,
+        connected,
+        chainId,
+        loading,
+        error
+    };
+};
