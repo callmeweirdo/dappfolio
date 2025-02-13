@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from "react";
 import { Button, Card, H2, Paragraph, ScrollView, XStack, YStack, Input, Sheet, Label } from "tamagui";
 import { Link } from "expo-router";
-import { useContracts } from "../hook/ethersSetup";
+import { useContracts } from "../hook/useContract"; // Ensure the correct path to useContracts
 import { Image, StyleSheet, ActivityIndicator } from "react-native";
 
 // Styles definition
@@ -69,7 +70,12 @@ const DevsCards = ({ name, description, imageUrl, link, onEdit }) => (
 
 // Main Component
 const DevsProjects = () => {
-  const { projectContract } = useContracts();
+  const {
+    projectContract, // Get projectContract from useContracts
+    loading: contractsLoading, // Use loading state from useContracts
+    error: contractsError, // Use error state from useContracts
+  } = useContracts();
+
   const [projects, setProjects] = useState([]);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [editProject, setEditProject] = useState(null);
@@ -93,7 +99,7 @@ const DevsProjects = () => {
 
     try {
       setLoading(true);
-      const projectData = await projectContract.getAllProjects();
+      const projectData = await projectContract.allProjectDetails(); // Use the correct function name
       const formattedProjects = projectData.map(project => ({
         id: project.id.toString(),
         date: project.date,
@@ -206,16 +212,27 @@ const DevsProjects = () => {
     setSheetVisible(true);
   };
 
+  // Fetch projects when projectContract is available
   useEffect(() => {
     if (projectContract) {
       fetchProjects();
     }
   }, [projectContract]);
 
-  if (loading && !sheetVisible) {
+  // Show loading state if contracts are still loading
+  if (contractsLoading || loading) {
     return (
       <YStack style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
+      </YStack>
+    );
+  }
+
+  // Show error state if there's a contract error
+  if (contractsError) {
+    return (
+      <YStack style={styles.loadingContainer}>
+        <Paragraph style={styles.errorText}>{contractsError}</Paragraph>
       </YStack>
     );
   }
